@@ -22,7 +22,7 @@ use cargo::core::registry::PackageRegistry;
 use cargo::core::resolver::features::HasDevUnits;
 use cargo::core::resolver::CliFeatures;
 use cargo::core::source::GitReference;
-use cargo::core::{Package, PackageSet, Resolve, Workspace};
+use cargo::core::{Package, PackageIdSpec, PackageSet, Resolve, Workspace};
 use cargo::ops;
 use cargo::util::{important_paths, CargoResult};
 use cargo::{CliResult, Config};
@@ -83,6 +83,8 @@ impl<'cfg> PackageInfo<'cfg> {
         // resolve our dependencies
         let (packages, resolve) = ops::resolve_ws(&self.ws)?;
 
+        let pkgid = PackageIdSpec::from_package_id(self.package()?.package_id());
+
         // resolve with all features set so we ensure we get all of the depends downloaded
         let resolve = ops::resolve_with_previous(
             &mut registry,
@@ -95,7 +97,7 @@ impl<'cfg> PackageInfo<'cfg> {
             /* don't avoid any */
             None,
             /* specs */
-            &[],
+            &[pkgid],
             /* warn? */
             true,
         )?;
@@ -241,7 +243,6 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
                 } else {
                     src_uri_extras.push(format!("SRCREV_FORMAT .= \":{}\"", pkg.name()));
                 };
-                
 
                 let precise = if options.reproducible {
                     src_id.precise()
@@ -372,7 +373,11 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
         }
         // we should be using ${SRCPV} here but due to a bitbake bug we cannot. see:
         // https://github.com/meta-rust/meta-rust/issues/136
-        format!("{} = \".AUTOINC+{}\"", pv_append_key, &project_repo.rev[..10])
+        format!(
+            "{} = \".AUTOINC+{}\"",
+            pv_append_key,
+            &project_repo.rev[..10]
+        )
     } else {
         // its a tag so nothing needed
         "".into()
